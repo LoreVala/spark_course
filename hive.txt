@@ -1,0 +1,161 @@
+create database lore_retail_db_txt;
+use lore_retail_db_txt;
+
+create table orders (
+  order_id int,
+  order_date string,
+  order_customer_id int,
+  order_status string
+) row format delimited fields terminated by ','
+stored as textfile;
+
+load data local inpath 'data/retail_db/orders/' into table orders;
+
+
+create table order_items (
+  order_item_id int,
+  order_item_order_id int,
+  order_item_product_id int,
+  order_item_quantity int,
+  order_item_subtotal float,
+  order_item_product_price float
+) row format delimited fields terminated by ','
+stored as textfile;
+
+load data local inpath 'data/retail_db/order_items/' into table order_items;
+
+create table customers (
+  customer_id int,
+  customer_fname string,
+  customer_lname string,
+  customer_email string,
+  customer_password string,
+  customer_street string,
+  customer_city string,
+  customer_state string,
+  customer_zipcode string
+) row format delimited fields terminated by ','
+stored as textfile;
+
+load data local inpath 'data/retail_db/customers/' into table customers;
+
+/* ORC */
+create database lore_retail_db_orc;
+use lore_retail_db_orc;
+
+create table orders (
+  order_id int,
+  order_date string,
+  order_customer_id int,
+  order_status string
+) stored as orc;
+
+insert into table orders select * from lore_retail_db_txt.orders;
+
+describe formatted orders;
+
+create table order_items (
+  order_item_id int,
+  order_item_order_id int,
+  order_item_product_id int,
+  order_item_quantity int,
+  order_item_subtotal float,
+  order_item_product_price float
+) stored as orc;
+
+insert into table order_items select * from lore_retail_db_txt.order_items;
+
+insert into table orders select * from lore_retail_db_txt.orders;
+
+
+/* Row level transformations */
+use lore_retail_db_txt;
+select cast(concat(substr
+
+
+/* Joins */
+select o.*, c.* from orders o join customers c on o.order_customer_id = c.customer_id limit 10;
+
+select o.*, c.* from orders o left outer join customers c on o.order_customer_id = c.customer_id limit 10;
+
+/* to count the number of record */
+select count(1) from orders o left outer join customers c on o.order_customer_id = c.customer_id limit 10;
+
+/* look how many customers have not placed an order yet */
+select count(1) from customers c left outer join orders o
+on o.order_customer_id = c.customer_id
+where o.order_customer_id is null;
+
+
+/* Aggregations */
+
+/* count number of orders by status */
+select order_status, count(1) from orders group by order_status;
+
+/* get the revenue for each order */
+select o.order_id, sum(oi.order_item_subtotal)
+from orders o join order_items oi
+on o.order_id = oi.order_item_order_id
+group by o.order_id;
+
+select o.order_id, sum(oi.order_item_subtotal) order_revenue
+from orders o join order_items oi
+on o.order_id = oi.order_item_order_id
+where o.order_status in ('COMPLETE', 'CLOSED')
+group by o.order_id
+having sum(oi.order_item_subtotal) >= 1000;
+
+/* get the revenue for each day (daily) */
+select o.order_date, round(sum(oi.order_item_subtotal), 2) daily_revenue
+from orders o join order_items oi
+on o.order_id = oi.order_item_order_id
+where o.order_status in ('COMPLETE', 'CLOSED')
+group by o.order_date;
+
+
+/* Sorting */
+
+/* first sort by order_date ascending (default), then by revenue descending */
+select o.order_id, o.order_date, o.order_status, round(sum(oi.order_item_subtotal), 2) order_revenue
+from orders o join order_items oi
+on o.order_id = oi.order_item_order_id
+where o.order_status in ('COMPLETE', 'CLOSED')
+group by o.order_id, o.order_date, o.order_status
+having sum(oi.order_item_subtotal) >= 1000
+order by o.order_date, order_revenue desc
+limit 10;
+
+/* better performance on big datasets */
+/* does not globally sort by date */
+select o.order_id, o.order_date, o.order_status, round(sum(oi.order_item_subtotal), 2) order_revenue
+from orders o join order_items oi
+on o.order_id = oi.order_item_order_id
+where o.order_status in ('COMPLETE', 'CLOSED')
+group by o.order_id, o.order_date, o.order_status
+having sum(oi.order_item_subtotal) >= 1000
+distribute by o.order_date sort by o.order_date, order_revenue desc
+limit 10;
+
+
+/* Set Operations */
+select 1, "Hello"
+union all
+select 2, "World"
+union all
+select 1, "Hello"
+union all
+select 1, "world";
+
+
+/* Analytical Functions */
+
+/* get the fraction of value of an order (group by id) */
+select * from (
+select o.order_id, o.order_date, o.order_status, oi.order_item_subtotal, round(sum(oi.order_item_subtotal) over (partition by o.order_id), 2) order_revenue, oi.order_item_subtotal/round(sum(oi.order_item_subtotal) over (partition by o.order_id), 2) pct_revenue
+from orders o join order_items oi
+on o.order_id = oi.order_item_order_id
+where o.order_status in ('COMPLETE', 'CLOSED')) q
+where order_revenue >= 1000
+order by order_date, order_revenue desc
+limit 10;
+
