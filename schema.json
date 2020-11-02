@@ -1,0 +1,45 @@
+{
+    "order_items": {
+        "order_item_id": "int",
+        "order_item_order_id": "int",
+        "order_item_product_id": "int",
+        "order_item_quantity": "int",
+        "order_item_subtotal": "float",
+        "order_item_product_price": "float"
+    },
+    "orders": {
+        "order_id": "int",
+        "order_date": "str",
+        "order_customer_id": "int",
+        "order_status": "str"
+    },
+
+    "customers": {
+        "customer_id": "int",
+	"customer_fname": "str",
+	"customer_lname": "str",
+	"customer_emaail": "str",
+	"customer_password": "str",
+	"customer_street": "str",
+	"customer_city": "str",
+	"customer_state": "str",
+	"customer_zipcode": "str"
+    },
+    "products": {
+        "product_id": "int",
+	"product_category_id": "int",
+	"product_name": "str",
+	"product_description": "str",
+	"product_price": "float",
+	"product_image": "str"
+    },
+    "categories": {
+        "category_id": "int",
+	"category_department_id": "int",
+	"category_name": "str"
+    },
+    "departments": {
+        "department_id": "int,
+	"department_name": "str"
+    }
+}
